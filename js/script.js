@@ -1,5 +1,4 @@
-// Go Kifu Master - JavaScript
-
+// Go Kifu Master - JavaScript (修正版)
 class GoGame {
     constructor() {
         this.boardSize = 19;
@@ -18,49 +17,19 @@ class GoGame {
         return Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(0));
     }
     
-    changeBoardSize(size) {
-        this.boardSize = size;
-        this.board = this.createEmptyBoard();
-        this.currentPlayer = 1;
-        this.moveHistory = [];
-        this.capturedStones = { black: 0, white: 0 };
-        this.currentMoveNumber = 0;
-        this.isPlaybackMode = false;
-        this.playbackPosition = 0;
-        this.stopAutoPlay();
-        
-        // Update active button
-        document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        this.initBoard();
-    }
-    
     initBoard() {
         const boardGrid = document.getElementById('boardGrid');
         const goBoard = document.getElementById('goBoard');
         boardGrid.innerHTML = '';
         
-        const cellSize = 420 / 18; // 18区間で19本の線
+        const cellSize = 420 / 18;
         
-        // Set board dimensions
-        goBoard.style.width = '480px';
-        goBoard.style.height = '480px';
-        
-        boardGrid.style.top = '30px';
-        boardGrid.style.left = '30px';
-        boardGrid.style.width = '420px';
-        boardGrid.style.height = '420px';
-        
-        // Draw grid lines (19x19の碁盤)
         // 横線 (19本)
         for (let i = 0; i < 19; i++) {
             const hLine = document.createElement('div');
             hLine.className = 'grid-line horizontal';
             hLine.style.top = (i * cellSize) + 'px';
             hLine.style.left = '0px';
-            hLine.style.width = '420px';
-            hLine.style.height = '1px';
             boardGrid.appendChild(hLine);
         }
         
@@ -70,12 +39,10 @@ class GoGame {
             vLine.className = 'grid-line vertical';
             vLine.style.left = (i * cellSize) + 'px';
             vLine.style.top = '0px';
-            vLine.style.width = '1px';
-            vLine.style.height = '420px';
             boardGrid.appendChild(vLine);
         }
         
-        // 星の位置 (19路盤の標準的な星の位置)
+        // 星の位置
         const starPoints = [
             [3, 3], [3, 9], [3, 15],
             [9, 3], [9, 9], [9, 15],
@@ -87,29 +54,16 @@ class GoGame {
             star.className = 'star-point';
             star.style.left = (col * cellSize) + 'px';
             star.style.top = (row * cellSize) + 'px';
-            star.style.position = 'absolute';
-            star.style.width = '6px';
-            star.style.height = '6px';
-            star.style.background = '#000';
-            star.style.borderRadius = '50%';
-            star.style.transform = 'translate(-50%, -50%)';
             boardGrid.appendChild(star);
         });
         
-        // 交点を作成 (19x19 = 361個)
+        // 交点を作成
         for (let row = 0; row < 19; row++) {
             for (let col = 0; col < 19; col++) {
                 const intersection = document.createElement('div');
                 intersection.className = 'intersection';
-                intersection.style.position = 'absolute';
                 intersection.style.left = (col * cellSize) + 'px';
                 intersection.style.top = (row * cellSize) + 'px';
-                intersection.style.width = '26px';
-                intersection.style.height = '26px';
-                intersection.style.transform = 'translate(-50%, -50%)';
-                intersection.style.cursor = 'pointer';
-                intersection.style.borderRadius = '50%';
-                intersection.style.transition = 'background 0.2s ease';
                 intersection.dataset.row = row;
                 intersection.dataset.col = col;
                 intersection.addEventListener('click', () => this.makeMove(row, col));
@@ -133,56 +87,54 @@ class GoGame {
             return false;
         }
         
-        // Check for suicide move
+        // 石を配置する前の盤面をコピー
         const tempBoard = this.board.map(row => [...row]);
         tempBoard[row][col] = this.currentPlayer;
         
-        // Capture opponent stones
+        // 相手の石を取る処理
         const capturedGroups = this.getCapturedGroups(tempBoard, row, col, this.currentPlayer);
-        
-        // Check if own group has liberties
-        const myGroup = this.getGroup(tempBoard, row, col);
-        const hasLiberty = this.groupHasLiberty(tempBoard, myGroup);
-        
-        if (!hasLiberty && capturedGroups.length === 0) {
-            showModal('無効な手', '自殺手は打てません');
-            return false;
-        }
-        
-        // Place stone
-        this.board[row][col] = this.currentPlayer;
-        this.currentMoveNumber++;
-        
-        // Capture stones
         let totalCaptured = 0;
+        
+        // 実際に石を取る
         capturedGroups.forEach(group => {
             group.forEach(([r, c]) => {
-                this.board[r][c] = 0;
+                tempBoard[r][c] = 0;
                 totalCaptured++;
             });
         });
         
-        // Update captured count
+        // 自殺手チェック
+        const myGroup = this.getGroup(tempBoard, row, col);
+        const hasLiberty = this.groupHasLiberty(tempBoard, myGroup);
+        
+        if (!hasLiberty && capturedGroups.length === 0) {
+            alert('自殺手は打てません');
+            return false;
+        }
+        
+        // 盤面を更新
+        this.board = tempBoard;
+        this.currentMoveNumber++;
+        
+        // アゲハマを更新
         if (this.currentPlayer === 1) {
             this.capturedStones.black += totalCaptured;
         } else {
             this.capturedStones.white += totalCaptured;
         }
         
-        // Add to history
+        // 手順を記録（簡略化バージョン）
         this.moveHistory.push({
-            row, col, 
-            player: this.currentPlayer,
-            moveNumber: this.currentMoveNumber,
-            captured: totalCaptured,
-            boardState: JSON.parse(JSON.stringify(this.board))
+            r: row, // rowを短縮
+            c: col, // colを短縮
+            p: this.currentPlayer, // playerを短縮
+            n: this.currentMoveNumber, // moveNumberを短縮
+            cap: totalCaptured // capturedを短縮
         });
         
-        // Switch player
+        // プレイヤー交代
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
-        
         this.updateDisplay();
-        this.updateMovesList();
         return true;
     }
     
@@ -258,179 +210,110 @@ class GoGame {
     }
     
     updateDisplay() {
-        // Update stones on board
         const intersections = document.querySelectorAll('.intersection');
         
         intersections.forEach((intersection) => {
             const row = parseInt(intersection.dataset.row);
             const col = parseInt(intersection.dataset.col);
             
-            // Remove existing stones and numbers
-            intersection.querySelectorAll('.stone, .move-number').forEach(el => el.remove());
+            intersection.querySelectorAll('.stone').forEach(el => el.remove());
             
             if (this.board[row][col] !== 0) {
-                // Create stone
                 const stone = document.createElement('div');
                 stone.className = `stone ${this.board[row][col] === 1 ? 'black' : 'white'}`;
                 intersection.appendChild(stone);
-                
-                // Show move numbers for recent moves
-                const move = this.moveHistory.find(m => m.row === row && m.col === col);
-                if (move && this.currentMoveNumber - move.moveNumber < 10) {
-                    const moveNum = document.createElement('div');
-                    moveNum.className = `move-number ${this.board[row][col] === 1 ? 'on-black' : 'on-white'}`;
-                    moveNum.textContent = move.moveNumber;
-                    intersection.appendChild(moveNum);
-                }
             }
         });
-        
-        // Update turn indicator
-        const turnStone = document.querySelector('.turn-stone');
-        const turnText = document.querySelector('.turn-text');
-        
-        if (this.isPlaybackMode) {
-            turnText.textContent = '棋譜再生モード';
-            turnStone.className = 'turn-stone';
-            turnStone.style.background = '#95a5a6';
-        } else {
-            turnStone.className = `turn-stone ${this.currentPlayer === 1 ? 'black' : 'white'}`;
-            turnText.textContent = `${this.currentPlayer === 1 ? '黒' : '白'}番のターン`;
-        }
-        
-        // Update stats
-        document.getElementById('moveCount').textContent = this.moveHistory.length;
-        document.getElementById('capturedByBlack').textContent = this.capturedStones.black;
-        document.getElementById('capturedByWhite').textContent = this.capturedStones.white;
-        document.getElementById('playbackInfo').textContent = `${this.playbackPosition}/${this.moveHistory.length}`;
     }
     
-    updateMovesList() {
-        const movesTimeline = document.getElementById('movesTimeline');
-        movesTimeline.innerHTML = '';
-        
-        this.moveHistory.forEach((move, index) => {
-            const moveRow = document.createElement('div');
-            moveRow.className = 'move-row';
-            
-            // Move number
-            const moveNumber = document.createElement('div');
-            moveNumber.className = 'move-number-display';
-            moveNumber.textContent = move.moveNumber;
-            
-            // Stone display
-            const stoneDisplay = document.createElement('div');
-            stoneDisplay.className = `move-stone-display ${move.player === 1 ? 'black' : 'white'}`;
-            
-            // Coordinate display
-            const coordinate = document.createElement('div');
-            coordinate.className = 'move-coordinate';
-            
-            if (move.row === -1) {
-                coordinate.textContent = 'パス';
-                coordinate.classList.add('pass');
-            } else {
-                const colLetter = String.fromCharCode(65 + move.col + (move.col >= 8 ? 1 : 0));
-                coordinate.textContent = `${colLetter}${this.boardSize - move.row}`;
-            }
-            
-            moveRow.appendChild(moveNumber);
-            moveRow.appendChild(stoneDisplay);
-            moveRow.appendChild(coordinate);
-            
-            // Click handler to jump to this move
-            moveRow.addEventListener('click', () => this.jumpToMove(index + 1));
-            
-            // Highlight current move in playback mode
-            if (this.isPlaybackMode && index === this.playbackPosition - 1) {
-                moveRow.classList.add('current');
-                // Scroll into view
-                setTimeout(() => {
-                    moveRow.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'nearest' 
-                    });
-                }, 100);
-            }
-            
-            movesTimeline.appendChild(moveRow);
-        });
-        
-        // Auto-scroll to bottom if not in playback mode
-        if (!this.isPlaybackMode && this.moveHistory.length > 0) {
-            setTimeout(() => {
-                movesTimeline.scrollTop = movesTimeline.scrollHeight;
-            }, 100);
-        }
-    }
-    
-    jumpToMove(moveNumber) {
-        if (moveNumber < 0 || moveNumber > this.moveHistory.length) return;
-        
-        this.isPlaybackMode = true;
-        this.playbackPosition = moveNumber;
-        this.updatePlaybackDisplay();
-        this.updateMovesList();
-    }
-    
+    // 修正版：棋譜再生時の正確な盤面再構築
     updatePlaybackDisplay() {
-        // Recreate board state up to playback position
+        // 盤面を初期化
         this.board = this.createEmptyBoard();
+        this.capturedStones = { black: 0, white: 0 };
         
+        // 指定した手数まで再現
         for (let i = 0; i < this.playbackPosition; i++) {
             const move = this.moveHistory[i];
-            if (move.row >= 0 && move.col >= 0) {
-                this.board[move.row][move.col] = move.player;
+            if (move.r >= 0 && move.c >= 0) {
+                // 石を配置
+                const tempBoard = this.board.map(row => [...row]);
+                tempBoard[move.r][move.c] = move.p;
+                
+                // 取りの処理を再現
+                const capturedGroups = this.getCapturedGroups(tempBoard, move.r, move.c, move.p);
+                capturedGroups.forEach(group => {
+                    group.forEach(([r, c]) => {
+                        tempBoard[r][c] = 0;
+                    });
+                });
+                
+                // アゲハマ更新
+                if (move.p === 1) {
+                    this.capturedStones.black += move.cap || 0;
+                } else {
+                    this.capturedStones.white += move.cap || 0;
+                }
+                
+                this.board = tempBoard;
             }
         }
         
         this.updateDisplay();
     }
     
-    // Control methods
     undoMove() {
         if (this.moveHistory.length === 0 || this.isPlaybackMode) return;
         
         const lastMove = this.moveHistory.pop();
         this.currentMoveNumber--;
         
-        // Restore captured count
-        if (lastMove.player === 1) {
-            this.capturedStones.black -= lastMove.captured;
+        // アゲハマを元に戻す
+        if (lastMove.p === 1) {
+            this.capturedStones.black -= lastMove.cap || 0;
         } else {
-            this.capturedStones.white -= lastMove.captured;
+            this.capturedStones.white -= lastMove.cap || 0;
         }
         
-        if (this.moveHistory.length === 0) {
-            this.board = this.createEmptyBoard();
-            this.currentPlayer = 1;
-        } else {
-            const prevMove = this.moveHistory[this.moveHistory.length - 1];
-            this.board = JSON.parse(JSON.stringify(prevMove.boardState));
-            this.currentPlayer = lastMove.player;
-        }
-        
+        // 盤面を再構築
+        this.reconstructBoard();
         this.updateDisplay();
-        this.updateMovesList();
     }
     
-    passMove() {
-        if (this.isPlaybackMode) return;
+    reconstructBoard() {
+        this.board = this.createEmptyBoard();
+        this.capturedStones = { black: 0, white: 0 };
         
-        this.currentMoveNumber++;
-        this.moveHistory.push({
-            row: -1, col: -1,
-            player: this.currentPlayer,
-            moveNumber: this.currentMoveNumber,
-            captured: 0,
-            boardState: JSON.parse(JSON.stringify(this.board))
+        // 全ての手を再現
+        this.moveHistory.forEach(move => {
+            if (move.r >= 0 && move.c >= 0) {
+                const tempBoard = this.board.map(row => [...row]);
+                tempBoard[move.r][move.c] = move.p;
+                
+                const capturedGroups = this.getCapturedGroups(tempBoard, move.r, move.c, move.p);
+                capturedGroups.forEach(group => {
+                    group.forEach(([r, c]) => {
+                        tempBoard[r][c] = 0;
+                    });
+                });
+                
+                if (move.p === 1) {
+                    this.capturedStones.black += move.cap || 0;
+                } else {
+                    this.capturedStones.white += move.cap || 0;
+                }
+                
+                this.board = tempBoard;
+            }
         });
         
-        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
-        this.updateDisplay();
-        this.updateMovesList();
-        
-        showModal('パス', `${this.currentPlayer === 1 ? '白' : '黒'}がパスしました`);
+        // 現在のプレイヤーを設定
+        if (this.moveHistory.length > 0) {
+            const lastMove = this.moveHistory[this.moveHistory.length - 1];
+            this.currentPlayer = lastMove.p === 1 ? 2 : 1;
+        } else {
+            this.currentPlayer = 1;
+        }
     }
     
     reset() {
@@ -443,17 +326,13 @@ class GoGame {
         this.playbackPosition = 0;
         this.stopAutoPlay();
         this.updateDisplay();
-        this.updateMovesList();
-        document.getElementById('shareSection').style.display = 'none';
     }
     
-    // Playback controls
     playbackFirst() {
         if (this.moveHistory.length === 0) return;
         this.isPlaybackMode = true;
         this.playbackPosition = 0;
         this.updatePlaybackDisplay();
-        this.updateMovesList();
     }
     
     playbackPrev() {
@@ -461,7 +340,6 @@ class GoGame {
         this.isPlaybackMode = true;
         this.playbackPosition = Math.max(0, this.playbackPosition - 1);
         this.updatePlaybackDisplay();
-        this.updateMovesList();
     }
     
     playbackNext() {
@@ -469,7 +347,6 @@ class GoGame {
         this.isPlaybackMode = true;
         this.playbackPosition = Math.min(this.moveHistory.length, this.playbackPosition + 1);
         this.updatePlaybackDisplay();
-        this.updateMovesList();
     }
     
     playbackLast() {
@@ -477,12 +354,11 @@ class GoGame {
         this.isPlaybackMode = true;
         this.playbackPosition = this.moveHistory.length;
         this.updatePlaybackDisplay();
-        this.updateMovesList();
     }
     
     togglePlayback() {
         if (this.moveHistory.length === 0) {
-            showModal('エラー', '再生する棋譜がありません');
+            alert('再生する棋譜がありません');
             return;
         }
         
@@ -490,7 +366,6 @@ class GoGame {
             this.isPlaybackMode = true;
             this.playbackPosition = 0;
             this.updatePlaybackDisplay();
-            this.updateMovesList();
         }
         
         if (this.autoPlayInterval) {
@@ -526,80 +401,74 @@ class GoGame {
         playButton.classList.remove('active');
     }
     
-    exitPlaybackMode() {
-        this.isPlaybackMode = false;
-        this.stopAutoPlay();
-        if (this.moveHistory.length > 0) {
-            const lastMove = this.moveHistory[this.moveHistory.length - 1];
-            this.board = JSON.parse(JSON.stringify(lastMove.boardState));
-            this.currentPlayer = lastMove.player === 1 ? 2 : 1;
-        } else {
-            this.reset();
-        }
+    passMove() {
+        if (this.isPlaybackMode) return;
+        
+        this.currentMoveNumber++;
+        this.moveHistory.push({
+            r: -1, c: -1,
+            p: this.currentPlayer,
+            n: this.currentMoveNumber,
+            cap: 0
+        });
+        
+        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
         this.updateDisplay();
-        this.updateMovesList();
+        
+        alert(`${this.currentPlayer === 1 ? '白' : '黒'}がパスしました`);
     }
     
-    // Kifu management
-    getKifuString() {
-        return JSON.stringify({
-            boardSize: this.boardSize,
-            moves: this.moveHistory,
-            timestamp: new Date().toISOString(),
-            capturedStones: this.capturedStones
-        });
-    }
-    
-    loadKifuString(kifuString) {
-        try {
-            const kifu = JSON.parse(kifuString);
-            
-            if (kifu.boardSize && kifu.boardSize !== this.boardSize) {
-                this.changeBoardSize(kifu.boardSize);
-                // Update UI
-                document.querySelectorAll('.size-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.textContent.includes(kifu.boardSize)) {
-                        btn.classList.add('active');
-                    }
-                });
-            }
-            
-            this.reset();
-            this.moveHistory = kifu.moves || [];
-            this.capturedStones = kifu.capturedStones || { black: 0, white: 0 };
-            this.currentMoveNumber = this.moveHistory.length;
-            
-            if (this.moveHistory.length > 0) {
-                const lastMove = this.moveHistory[this.moveHistory.length - 1];
-                this.board = JSON.parse(JSON.stringify(lastMove.boardState));
-                this.currentPlayer = lastMove.player === 1 ? 2 : 1;
-            }
-            
-            this.updateDisplay();
-            this.updateMovesList();
-            return true;
-        } catch (e) {
-            console.error('Error loading kifu:', e);
-            return false;
+    saveKifu() {
+        if (this.moveHistory.length === 0) {
+            alert('まだ手が打たれていません');
+            return;
         }
-    }
-    
-    generateSGF() {
-        let sgf = `(;FF[4]GM[1]SZ[${this.boardSize}]`;
         
-        this.moveHistory.forEach(move => {
-            if (move.row === -1) {
-                sgf += `;${move.player === 1 ? 'B' : 'W'}[]`;
-            } else {
-                const col = String.fromCharCode(97 + move.col);
-                const row = String.fromCharCode(97 + move.row);
-                sgf += `;${move.player === 1 ? 'B' : 'W'}[${col}${row}]`;
-            }
+        // 簡略化されたデータ
+        const kifuData = JSON.stringify({
+            s: this.boardSize, // sizeを短縮
+            m: this.moveHistory, // movesを短縮
+            t: Date.now() // timestampを短縮
         });
         
-        sgf += ')';
-        return sgf;
+        localStorage.setItem('go_kifu_latest', kifuData);
+        alert('棋譜を保存しました');
+    }
+    
+    // 修正版：短いURL生成
+    shareKifu() {
+        if (this.moveHistory.length === 0) {
+            alert('まだ手が打たれていません');
+            return;
+        }
+        
+        // 最小限のデータのみを含める
+        const compactData = {
+            s: this.boardSize,
+            m: this.moveHistory.map(move => [move.r, move.c, move.p])
+        };
+        
+        try {
+            const compactString = JSON.stringify(compactData);
+            const encodedKifu = btoa(compactString);
+            
+            // URL長さチェック
+            const shareUrl = `${window.location.origin}${window.location.pathname}?k=${encodedKifu}`;
+            
+            if (shareUrl.length > 2000) {
+                alert('棋譜が長すぎて共有URLを生成できません。手数を減らしてください。');
+                return;
+            }
+            
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('共有URLをクリップボードにコピーしました');
+            }).catch(() => {
+                prompt('この URL をコピーして共有してください:', shareUrl);
+            });
+            
+        } catch (e) {
+            alert('共有URL生成中にエラーが発生しました');
+        }
     }
 }
 
@@ -608,12 +477,21 @@ let game = new GoGame();
 
 // Event handlers
 function changeBoardSize(size) {
-    game.changeBoardSize(size);
+    game.boardSize = size;
+    game.reset();
+    
+    document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    game.initBoard();
 }
 
 function undoMove() {
     if (game.isPlaybackMode) {
-        game.exitPlaybackMode();
+        game.isPlaybackMode = false;
+        game.stopAutoPlay();
+        game.reconstructBoard();
+        game.updateDisplay();
     } else {
         game.undoMove();
     }
@@ -622,7 +500,7 @@ function undoMove() {
 function resetGame() {
     if (confirm('新しいゲームを開始しますか？現在の対局は失われます。')) {
         game.reset();
-        showModal('新しいゲーム', '新しいゲームを開始しました');
+        alert('新しいゲームを開始しました');
     }
 }
 
@@ -631,130 +509,13 @@ function passMove() {
 }
 
 function saveKifu() {
-    if (game.moveHistory.length === 0) {
-        showModal('エラー', 'まだ手が打たれていません');
-        return;
-    }
-    
-    const kifuString = game.getKifuString();
-    localStorage.setItem('go_kifu_latest', kifuString);
-    showModal('保存完了', '棋譜をローカルストレージに保存しました');
+    game.saveKifu();
 }
 
 function shareKifu() {
-    if (game.moveHistory.length === 0) {
-        showModal('エラー', 'まだ手が打たれていません');
-        return;
-    }
-    
-    const kifuString = game.getKifuString();
-    const encodedKifu = btoa(encodeURIComponent(kifuString));
-    const shareUrl = `${window.location.origin}${window.location.pathname}?kifu=${encodedKifu}`;
-    
-    document.getElementById('shareUrl').textContent = shareUrl;
-    document.getElementById('shareSection').style.display = 'block';
-    
-    showModal('共有URL生成', 'URLを生成しました。リンクをコピーして共有できます。');
+    game.shareKifu();
 }
 
-function copyToClipboard() {
-    const url = document.getElementById('shareUrl').textContent;
-    navigator.clipboard.writeText(url).then(() => {
-        showModal('コピー完了', 'URLをクリップボードにコピーしました');
-    }).catch(() => {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showModal('コピー完了', 'URLをクリップボードにコピーしました');
-    });
-}
-
-function downloadSGF() {
-    if (game.moveHistory.length === 0) {
-        showModal('エラー', 'まだ手が打たれていません');
-        return;
-    }
-    
-    const sgf = game.generateSGF();
-    const blob = new Blob([sgf], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kifu_${new Date().toISOString().slice(0,10)}.sgf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showModal('ダウンロード完了', 'SGFファイルをダウンロードしました');
-}
-
-function loadSGF(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const sgfContent = e.target.result;
-        if (parseSGF(sgfContent)) {
-            showModal('読み込み完了', 'SGFファイルを読み込みました');
-        } else {
-            showModal('エラー', 'SGFファイルの読み込みに失敗しました');
-        }
-    };
-    reader.readAsText(file);
-}
-
-function parseSGF(sgfContent) {
-    try {
-        // Simple SGF parser (basic implementation)
-        const sizeMatch = sgfContent.match(/SZ\[(\d+)\]/);
-        const boardSize = sizeMatch ? parseInt(sizeMatch[1]) : 19;
-        
-        if (boardSize !== game.boardSize) {
-            game.changeBoardSize(boardSize);
-            document.querySelectorAll('.size-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.textContent.includes(boardSize)) {
-                    btn.classList.add('active');
-                }
-            });
-        }
-        
-        game.reset();
-        
-        const moves = sgfContent.match(/[BW]\[[a-z]*\]/g) || [];
-        moves.forEach((move, index) => {
-            const color = move[0] === 'B' ? 1 : 2;
-            const coord = move.slice(2, -1);
-            
-            if (coord === '') {
-                // Pass move
-                game.currentPlayer = color;
-                game.passMove();
-            } else if (coord.length === 2) {
-                const col = coord.charCodeAt(0) - 97;
-                const row = coord.charCodeAt(1) - 97;
-                
-                if (game.isValidPosition(row, col)) {
-                    game.currentPlayer = color;
-                    game.makeMove(row, col);
-                }
-            }
-        });
-        
-        return true;
-    } catch (e) {
-        console.error('SGF parsing error:', e);
-        return false;
-    }
-}
-
-// Playback controls
 function playbackFirst() {
     game.playbackFirst();
 }
@@ -775,127 +536,78 @@ function togglePlayback() {
     game.togglePlayback();
 }
 
-// Timeline control functions
-function showAllMoves() {
-    document.querySelectorAll('.moves-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    document.querySelectorAll('.move-row').forEach(row => {
-        row.style.display = 'grid';
-    });
-}
-
-function showRecentMoves() {
-    document.querySelectorAll('.moves-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    const moveRows = document.querySelectorAll('.move-row');
-    const totalMoves = moveRows.length;
-    
-    moveRows.forEach((row, index) => {
-        if (index >= totalMoves - 10) {
-            row.style.display = 'grid';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-
-function clearSelection() {
-    document.querySelectorAll('.moves-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    document.querySelectorAll('.move-row').forEach(row => {
-        row.classList.remove('current');
-    });
-    
-    if (game.isPlaybackMode) {
-        game.exitPlaybackMode();
-    }
-}
-
-// Modal functions
-function showModal(title, message) {
-    document.getElementById('modalTitle').textContent = title;
-    document.getElementById('modalMessage').textContent = message;
-    document.getElementById('modal').style.display = 'block';
-}
-
-function closeModal() {
-    document.getElementById('modal').style.display = 'none';
-}
-
-// Window click to close modal
-window.onclick = function(event) {
-    const modal = document.getElementById('modal');
-    if (event.target === modal) {
-        closeModal();
-    }
-}
-
 // Initialize on load
 window.addEventListener('load', function() {
-    // Load kifu from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
-    const kifuParam = urlParams.get('kifu');
+    const kifuParam = urlParams.get('k') || urlParams.get('kifu'); // 新旧両対応
     
     if (kifuParam) {
         try {
-            const kifuString = decodeURIComponent(atob(kifuParam));
-            if (game.loadKifuString(kifuString)) {
-                showModal('棋譜読み込み', '共有された棋譜を読み込みました');
+            const kifuString = atob(kifuParam);
+            const kifu = JSON.parse(kifuString);
+            
+            game.reset();
+            
+            // 新形式の場合
+            if (kifu.m && Array.isArray(kifu.m) && Array.isArray(kifu.m[0])) {
+                game.boardSize = kifu.s || 19;
+                game.moveHistory = kifu.m.map((move, index) => ({
+                    r: move[0],
+                    c: move[1], 
+                    p: move[2],
+                    n: index + 1,
+                    cap: 0
+                }));
+            } 
+            // 旧形式の場合
+            else if (kifu.moves) {
+                game.moveHistory = kifu.moves.map(move => ({
+                    r: move.row || move.r,
+                    c: move.col || move.c,
+                    p: move.player || move.p,
+                    n: move.moveNumber || move.n,
+                    cap: move.captured || move.cap || 0
+                }));
             }
+            
+            game.currentMoveNumber = game.moveHistory.length;
+            game.reconstructBoard();
+            game.updateDisplay();
+            alert('共有された棋譜を読み込みました');
+            
         } catch (e) {
-            showModal('エラー', '棋譜の読み込みに失敗しました');
+            alert('棋譜の読み込みに失敗しました');
         }
     }
     
-    // Load saved kifu from localStorage
+    // ローカルストレージからの読み込み
     const savedKifu = localStorage.getItem('go_kifu_latest');
     if (savedKifu && !kifuParam) {
         if (confirm('保存された棋譜がありますが、読み込みますか？')) {
-            game.loadKifuString(savedKifu);
-        }
-    }
-});
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey || e.metaKey) {
-        switch(e.key) {
-            case 'z':
-                e.preventDefault();
-                undoMove();
-                break;
-            case 's':
-                e.preventDefault();
-                saveKifu();
-                break;
-        }
-    }
-    
-    switch(e.key) {
-        case 'ArrowLeft':
-            e.preventDefault();
-            playbackPrev();
-            break;
-        case 'ArrowRight':
-            e.preventDefault();
-            playbackNext();
-            break;
-        case ' ':
-            e.preventDefault();
-            togglePlayback();
-            break;
-        case 'Escape':
-            if (game.isPlaybackMode) {
-                game.exitPlaybackMode();
+            try {
+                const kifu = JSON.parse(savedKifu);
+                game.reset();
+                
+                if (kifu.m) {
+                    game.boardSize = kifu.s || 19;
+                    game.moveHistory = kifu.m;
+                } else if (kifu.moves) {
+                    game.moveHistory = kifu.moves.map(move => ({
+                        r: move.row || move.r,
+                        c: move.col || move.c,
+                        p: move.player || move.p,
+                        n: move.moveNumber || move.n,
+                        cap: move.captured || move.cap || 0
+                    }));
+                }
+                
+                game.currentMoveNumber = game.moveHistory.length;
+                game.reconstructBoard();
+                game.updateDisplay();
+                
+            } catch (e) {
+                console.error('Error loading saved kifu:', e);
             }
-            break;
+        }
     }
-});
-
-// Responsive board resizing
-window.addEventListener('resize', function() {
-    game.initBoard();
 });
