@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Kifu Master - 囲碁棋譜記録・共有アプリ</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div>
+                    <h1>🎯 Go Kifu Master</h1>
+                    <p>プロ級の囲碁棋譜記録・共有プラットフォーム</p>
+                </div>
+                <div class="board-size-selector">
+                    <button class="size-btn" onclick="changeBoardSize(9)">9路</button>
+                    <button class="size-btn" onclick="changeBoardSize(13)">13路</button>
+                    <button class="size-btn active" onclick="changeBoardSize(19)">19路</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="board-section">
+                <div class="game-info">
+                    <div class="turn-indicator">
+                        <div class="turn-stone black"></div>
+                        <span class="turn-text">黒番のターン</span>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="moveCount">0</div>
+                            <div class="stat-label">手数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="capturedByBlack">0</div>
+                            <div class="stat-label">黒のアゲハマ</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="capturedByWhite">0</div>
+                            <div class="stat-label">白のアゲハマ</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="playbackInfo">0/0</div>
+                            <div class="stat-label">再生位置</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="go-board-container">
+                    <div class="go-board" id="goBoard">
+                        <div class="board-grid" id="boardGrid"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="right-panel">
+                <div class="controls-section">
+                    <div class="control-group">
+                        <h3>🎮 ゲーム操作</h3>
+                        <div class="button-group">
+                            <button class="button secondary" onclick="undoMove()">↶ 一手戻す</button>
+                            <button class="button secondary" onclick="passMove()">⏭️ パス</button>
+                        </div>
+                        <div class="button-group full">
+                            <button class="button danger" onclick="resetGame()">🔄 新しいゲーム</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>▶️ 棋譜再生</h3>
+                        <div class="playback-controls">
+                            <button class="playback-btn" onclick="playbackFirst()">
+                                <span class="icon">⏪</span>
+                                <span class="label">最初へ</span>
+                            </button>
+                            <button class="playback-btn" onclick="playbackPrev()">
+                                <span class="icon">⏮️</span>
+                                <span class="label">前の手</span>
+                            </button>
+                            <button class="playback-btn" onclick="togglePlayback()" id="playButton">
+                                <span class="icon">▶️</span>
+                                <span class="label">再生</span>
+                            </button>
+                            <button class="playback-btn" onclick="playbackNext()">
+                                <span class="icon">⏭️</span>
+                                <span class="label">次の手</span>
+                            </button>
+                            <button class="playback-btn" onclick="playbackLast()">
+                                <span class="icon">⏩</span>
+                                <span class="label">最後へ</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>💾 棋譜管理</h3>
+                        <div class="button-group">
+                            <button class="button success" onclick="saveKifu()">📝 保存</button>
+                            <button class="button primary" onclick="shareKifu()">🔗 共有</button>
+                        </div>
+                        <label for="sgfFile" class="file-label">
+                            📁 SGFファイル読み込み
+                            <input type="file" id="sgfFile" class="file-input" accept=".sgf" onchange="loadSGF(event)">
+                        </label>
+                    </div>
+                    
+                    <div class="share-section" id="shareSection" style="display: none;">
+                        <h4>🎯 棋譜共有</h4>
+                        <div class="share-url" id="shareUrl"></div>
+                        <div class="button-group">
+                            <button class="button primary" onclick="copyToClipboard()">📋 コピー</button>
+                            <button class="button secondary" onclick="downloadSGF()">💾 SGF保存</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="moves-section">
+                    <div class="control-group">
+                        <h3>📝 手順タイムライン</h3>
+                        <div class="moves-controls">
+                            <button class="moves-filter-btn active" onclick="showAllMoves()">全て</button>
+                            <button class="moves-filter-btn" onclick="showRecentMoves()">直近10手</button>
+                            <button class="moves-filter-btn" onclick="clearSelection()">選択解除</button>
+                        </div>
+                        <div class="timeline-header">
+                            <div>手数</div>
+                            <div>石</div>
+                            <div>座標</div>
+                        </div>
+                        <div class="moves-timeline" id="movesTimeline"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle">通知</h3>
+            <p id="modalMessage"></p>
+            <button class="button primary" onclick="closeModal()">OK</button>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
